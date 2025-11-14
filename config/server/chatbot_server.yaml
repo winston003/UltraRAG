@@ -1,0 +1,59 @@
+custom:
+  parameter: servers/custom/parameter.yaml
+  path: servers/custom/src/chatbot_custom.py
+  tools:
+    extract_answer:
+      input:
+        ans_ls: ans_ls
+      output:
+      - clean_answer
+    format_context_with_history:
+      input:
+        chat_history: $chat_history
+        ret_psg: ret_psg
+      output:
+      - formatted_context
+generation:
+  parameter: servers/generation/parameter.yaml
+  path: servers/generation/src/generation.py
+  tools:
+    generate:
+      input:
+        base_url: $base_url
+        model_name: $model_name
+        prompt_ls: prompt_ls
+        sampling_params: $sampling_params
+      output:
+      - ans_ls
+prompt:
+  parameter: servers/prompt/parameter.yaml
+  path: servers/prompt/src/prompt.py
+  prompts:
+    qa_rag_multiround:
+      input:
+        formatted_context: formatted_context
+        q_ls: $q_ls
+        template: $template
+      output:
+      - prompt_ls
+retriever:
+  parameter: servers/retriever/parameter.yaml
+  path: servers/retriever/src/retriever.py
+  tools:
+    retriever_init_openai:
+      input:
+        api_base: $api_base
+        api_key: $api_key
+        corpus_path: $corpus_path
+        openai_model: $openai_model
+    retriever_search_lancedb:
+      input:
+        filter_expr: $filter_expr
+        lancedb_path: $lancedb_path
+        query_instruction: $query_instruction
+        query_list: $query_list
+        table_name: $table_name
+        top_k: $top_k
+        use_openai: $use_openai
+      output:
+      - ret_psg

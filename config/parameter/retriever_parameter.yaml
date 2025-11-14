@@ -1,0 +1,60 @@
+# config/parameter/retriever_parameter.yaml
+# UltraRAG 检索器配置 - 支持阿里云API和LanceDB
+
+# 基础配置
+retriever_path: openbmb/MiniCPM-Embedding-Light
+corpus_path: data/processed/88_chunks.jsonl
+is_multimodal: false
+embedding_path: embedding/embedding_88.npy
+index_path: index/index_88.index
+
+# 检索参数
+query_instruction: "Query: "
+top_k: 5
+similarity_threshold: 0.7
+overwrite: false
+retriever_url: http://localhost:8080
+index_chunk_size: 50000
+
+# 阿里云嵌入模型配置
+use_ali_embedding: true
+ali_embedding_config:
+  model: "text-embedding-v3"
+  api_key: "${ALI_EMBEDDING_API_KEY}"
+  api_base: "https://dashscope.aliyuncs.com/api/v1"
+  batch_size: 32
+  max_retries: 3
+  timeout: 30
+
+# LanceDB 向量数据库配置
+use_lancedb: true
+lancedb_config:
+  path: "data/lancedb"
+  table_name: "documents"
+  vector_column: "vector"
+  text_column: "text"
+  metadata_columns: ["source", "chunk_id", "timestamp"]
+  create_if_not_exists: true
+
+# 聊天机器人所需的参数
+database_path: "data/lancedb"
+table_name: "documents"
+score_threshold: 0.3
+
+# 性能优化配置
+performance:
+  use_gpu: false
+  batch_size: 16
+  max_workers: 4
+  cache_size: 1000
+  
+# 兼容性配置（保留原有配置）
+infinity_kwargs:
+  bettertransformer: false
+  pooling_method: auto
+  device: cpu
+  batch_size: 16
+  model_warmup: false
+
+faiss_use_gpu: false
+filter_expr: null

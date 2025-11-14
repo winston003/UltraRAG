@@ -1,0 +1,34 @@
+# Multi-turn RAG Chatbot Configuration for Business Case Analysis
+# Target audience: Students
+# Content: Business case analysis and breakdown
+
+# Basic configuration
+target_user: "学生"
+content_type: "商业案例拆解"
+index_path: "data/lancedb"
+table_name: "documents"
+
+servers:
+  retriever: servers/retriever
+  prompt: servers/prompt
+  generation: servers/generation
+  custom: servers/custom
+
+pipeline:
+  - retriever.retriever_init_openai
+  - retriever.retriever_search_lancedb
+  - custom.format_context_with_history
+  - prompt.qa_rag_multiround
+  - generation.generate
+  - custom.extract_answer
+
+# Input variables (external inputs)
+inputs:
+  - q_ls
+  - chat_history
+
+# Server configuration
+server:
+  host: "0.0.0.0"
+  port: 8502
+  debug: false

@@ -1,0 +1,53 @@
+# 商业案例分析聊天机器人依赖包
+# Business Case Analysis Chatbot Dependencies
+
+# Web界面框架
+streamlit>=1.28.0
+
+# UltraRAG核心包
+# 注意: 这个包应该已经在项目中安装
+# ultrarag>=2.0.0
+
+# 向量数据库
+lancedb>=0.3.0
+
+# OpenAI API客户端
+openai>=1.0.0
+
+# 数据处理
+numpy>=1.24.0
+pandas>=2.0.0
+
+# 异步支持
+aiohttp>=3.8.0
+
+# 配置文件处理
+pyyaml>=6.0
+
+# 模板引擎
+jinja2>=3.1.0
+
+# 进度条
+tqdm>=4.65.0
+
+# HTTP请求
+requests>=2.31.0
+
+# 路径处理
+pathlib2>=2.3.7
+
+# JSON处理
+jsonlines>=3.1.0
+
+# 评估指标
+rouge-score>=0.1.2
+
+# 表格显示
+tabulate>=0.9.0
+
+# Flask (用于某些服务)
+flask>=2.3.0
+
+# 其他工具包
+fastmcp>=0.1.0
+infinity-emb>=0.0.1

@@ -1,0 +1,36 @@
+# 88.txt 完整处理管道：切块 + 索引构建
+# Complete Pipeline for 88.txt: Chunking + Indexing
+
+# MCP Server 配置
+servers:
+  corpus: servers/corpus
+  retriever: servers/retriever
+
+# MCP Client Pipeline 流程
+pipeline:
+  # 第一步：文本切块
+  - corpus.corpus_chunk:
+      chunk_size: 800
+      chunk_strategy: recursive
+      file_path: data/88.txt
+      output_path: servers/corpus/output/corpus/chunks_88.jsonl
+      tokenizer_name_or_path: bert-base-chinese
+  
+  # 第二步：初始化检索器
+  - retriever.retriever_init_openai:
+      corpus_path: servers/corpus/output/corpus/chunks_88.jsonl
+      retriever_path: openbmb/MiniCPM-Embedding-Light
+      embedding_path: embedding/embedding_88.npy
+      index_path: index/index_88.index
+  
+  # 第三步：生成文本嵌入
+  - retriever.retriever_embed_openai:
+      embedding_path: embedding/embedding_88.npy
+      overwrite: true
+  
+  # 第四步：构建向量索引
+  - retriever.retriever_index:
+      embedding_path: embedding/embedding_88.npy
+      index_path: index/index_88.index
+      overwrite: true
+      index_chunk_size: 50000

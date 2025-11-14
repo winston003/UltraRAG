@@ -1,0 +1,62 @@
+# UltraRAG Pipeline Configuration for 88.txt with LanceDB
+# 这个管道将处理88.txt文件并将向量数据存储到LanceDB中
+
+servers:
+  corpus: servers/corpus
+  retriever: servers/retriever
+
+variables:
+  file_path: test_doc.txt
+  chunk_size: 800
+  chunk_strategy: recursive
+  output_path: servers/corpus/output/corpus/chunks_88.jsonl
+  corpus_path: servers/corpus/output/corpus/chunks_88.jsonl
+  tokenizer_name_or_path: bert-base-chinese
+  embedding_path: vectors/embeddings/embedding_88.npy
+  lancedb_path: vectors/indices/lancedb
+  table_name: documents
+  openai_model: text-embedding-v3
+  api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+  api_key: sk-9a480cd1ba2xxxx
+  overwrite: true
+
+pipeline:
+  # 第一步：解析文档
+  - corpus.parse_documents:
+      input:
+        file_path: $file_path
+      output:
+        raw_data: raw_data
+  
+  # 第二步：文档切块
+  - corpus.chunk_documents:
+      input:
+        chunk_strategy: $chunk_strategy
+        chunk_size: $chunk_size
+        raw_data: raw_data
+        output_path: $output_path
+        tokenizer_name_or_path: $tokenizer_name_or_path
+      output:
+        status: status
+  
+  # 第三步：初始化检索器（使用OpenAI兼容API）
+  - retriever.retriever_init_openai:
+      input:
+        corpus_path: $corpus_path
+        openai_model: $openai_model
+        api_base: $api_base
+        api_key: $api_key
+  
+  # 第四步：生成文本嵌入
+  - retriever.retriever_embed_openai:
+      input:
+        embedding_path: $embedding_path
+        overwrite: $overwrite
+  
+  # 第五步：构建LanceDB向量索引
+  - retriever.retriever_index_lancedb:
+      input:
+        embedding_path: $embedding_path
+        lancedb_path: $lancedb_path
+        table_name: $table_name
+        overwrite: $overwrite

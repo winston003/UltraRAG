@@ -1,0 +1,96 @@
+# UltraRAG 聊天机器人 Pipeline 配置
+
+name: "chatbot_pipeline"
+description: "UltraRAG聊天机器人对话管道"
+version: "1.0.0"
+
+# 管道配置
+pipeline:
+  # 1. 查询预处理
+  - name: "query_preprocessor"
+    type: "preprocessor"
+    config:
+      max_length: 512
+      clean_text: true
+      normalize: true
+
+  # 2. 向量检索
+  - name: "vector_retriever"
+    type: "retriever"
+    config:
+      database: "lancedb"
+      table_name: "documents"
+      embedding_model: "${ALI_EMBEDDING_MODEL}"
+      top_k: 5
+      similarity_threshold: 0.7
+      rerank: true
+
+  # 3. 上下文整合
+  - name: "context_merger"
+    type: "merger"
+    config:
+      max_context_length: 2048
+      merge_strategy: "relevance_weighted"
+      include_metadata: true
+
+  # 4. 响应生成
+  - name: "response_generator"
+    type: "generator"
+    config:
+      model: "${ALI_MODEL_NAME}"
+      api_key: "${ALI_API_KEY}"
+      api_base: "${ALI_API_BASE}"
+      max_tokens: 1024
+      temperature: 0.7
+      stream: true
+
+# 服务器配置
+server:
+  host: "${SERVER_HOST}"
+  port: ${SERVER_PORT}
+  websocket_port: ${WEBSOCKET_PORT}
+  cors_origins: ["*"]
+  max_concurrent: ${MAX_CONCURRENT_REQUESTS}
+
+# 数据库配置
+database:
+  type: "lancedb"
+  path: "${LANCEDB_PATH}"
+  table_name: "${LANCEDB_TABLE_NAME}"
+  
+# 嵌入模型配置
+embedding:
+  model: "${ALI_EMBEDDING_MODEL}"
+  api_key: "${ALI_EMBEDDING_API_KEY}"
+  batch_size: 32
+  max_retries: 3
+
+# 生成模型配置
+generation:
+  model: "${ALI_MODEL_NAME}"
+  api_key: "${ALI_API_KEY}"
+  api_base: "${ALI_API_BASE}"
+  parameters:
+    max_tokens: 1024
+    temperature: 0.7
+    top_p: 0.9
+    frequency_penalty: 0.1
+    presence_penalty: 0.1
+
+# 缓存配置
+cache:
+  enabled: true
+  ttl: 3600  # 1小时
+  max_size: 1000
+
+# 日志配置
+logging:
+  level: "${LOG_LEVEL}"
+  file: "${LOG_FILE}"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# 监控配置
+monitoring:
+  enabled: true
+  metrics_port: 9090
+  health_check_interval: 30

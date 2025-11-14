@@ -1,0 +1,57 @@
+# 分块文本清洗Pipeline配置
+# 基于UltraRAG框架的大规模文本清洗方案
+# 采用分块+LLM清洗策略，适用于录音转文本等需要处理的文本内容
+
+servers:
+  custom: servers/custom
+
+variables:
+  # 输入文件路径
+  input_file: "test_large_text.txt"
+  # 输出文件路径
+  output_file: "data/test_large_cleaned_chunked.txt"
+  # 分块大小（字符数）- 按指南建议1000-2000字/块
+  chunk_size: 1000
+  # 分块重叠大小 - 按指南建议100-200字重叠
+  chunk_overlap: 150
+  # LLM模型配置
+  model_name: "gpt-3.5-turbo"
+  api_base: "https://api.openai.com/v1"
+  api_key: "your-api-key"
+
+pipeline:
+  # 1. 加载文本文件
+  - custom.load_text_file:
+      input:
+        file_path: $input_file
+      output:
+        text_content: text_content
+  
+  # 2. 文本分块处理
+  - custom.chunk_text:
+      input:
+        text_content: text_content
+        chunk_size: $chunk_size
+        chunk_overlap: $chunk_overlap
+      output:
+        text_chunks: text_chunks
+  
+  # 3. 基础清洗文本块
+  - custom.clean_text_chunks:
+      input:
+        chunks: text_chunks
+      output:
+        cleaned_chunks: cleaned_chunks
+  
+  # 4. 合并清洗后的文本块
+  - custom.merge_cleaned_chunks:
+      input:
+        cleaned_chunks: cleaned_chunks
+      output:
+        merged_text: merged_text
+  
+  # 5. 保存最终结果
+  - custom.save_cleaned_text:
+      input:
+        merged_text: merged_text
+        output_path: $output_file

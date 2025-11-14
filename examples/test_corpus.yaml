@@ -1,0 +1,16 @@
+servers:
+  corpus: servers/corpus
+
+pipeline:
+  - corpus.parse_documents:
+      input:
+        file_path: $file_path
+      output:
+        raw_data: raw_data
+  - corpus.chunk_documents:
+      input:
+        raw_data: raw_data
+        chunk_strategy: $chunk_strategy
+        chunk_size: $chunk_size
+        output_path: $output_path
+        tokenizer_name_or_path: $tokenizer_name_or_path

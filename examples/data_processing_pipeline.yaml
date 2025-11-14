@@ -1,0 +1,118 @@
+# UltraRAG 数据处理 Pipeline 配置
+
+name: "data_processing_pipeline"
+description: "UltraRAG知识库构建管道"
+version: "1.0.0"
+
+# 数据处理管道
+pipeline:
+  # 1. 数据加载
+  - name: "data_loader"
+    type: "loader"
+    config:
+      input_dir: "${CORPUS_DIR}"
+      supported_formats: ["txt", "md", "pdf", "docx", "json", "jsonl"]
+      encoding: "utf-8"
+      recursive: true
+
+  # 2. 文本预处理
+  - name: "text_preprocessor"
+    type: "preprocessor"
+    config:
+      clean_html: true
+      remove_extra_whitespace: true
+      normalize_unicode: true
+      min_length: 10
+      max_length: 10000
+
+  # 3. 文档分块
+  - name: "text_chunker"
+    type: "chunker"
+    config:
+      chunk_size: ${CHUNK_SIZE}
+      chunk_overlap: ${CHUNK_OVERLAP}
+      strategy: "semantic"  # semantic, fixed, sentence
+      preserve_structure: true
+
+  # 4. 向量化
+  - name: "text_embedder"
+    type: "embedder"
+    config:
+      model: "${ALI_EMBEDDING_MODEL}"
+      api_key: "${ALI_EMBEDDING_API_KEY}"
+      batch_size: 32
+      max_retries: 3
+      timeout: 30
+
+  # 5. 索引构建
+  - name: "index_builder"
+    type: "indexer"
+    config:
+      database: "lancedb"
+      table_name: "${LANCEDB_TABLE_NAME}"
+      path: "${LANCEDB_PATH}"
+      vector_column: "vector"
+      metadata_columns: ["text", "source", "chunk_id", "timestamp"]
+
+# 输入配置
+input:
+  source_dir: "${CORPUS_DIR}"
+  file_patterns: ["*.txt", "*.md", "*.pdf", "*.docx", "*.json", "*.jsonl"]
+  exclude_patterns: [".*", "__pycache__", "*.pyc"]
+
+# 输出配置
+output:
+  index_dir: "${INDEX_DIR}"
+  vector_db_path: "${LANCEDB_PATH}"
+  metadata_file: "${INDEX_DIR}/metadata.json"
+  stats_file: "${INDEX_DIR}/processing_stats.json"
+
+# 处理配置
+processing:
+  batch_size: 100
+  max_workers: 4
+  chunk_size: ${CHUNK_SIZE}
+  chunk_overlap: ${CHUNK_OVERLAP}
+  
+# 嵌入配置
+embedding:
+  model: "${ALI_EMBEDDING_MODEL}"
+  api_key: "${ALI_EMBEDDING_API_KEY}"
+  api_base: "${ALI_API_BASE}"
+  batch_size: 32
+  max_retries: 3
+  retry_delay: 1
+  timeout: 30
+
+# 数据库配置
+database:
+  type: "lancedb"
+  path: "${LANCEDB_PATH}"
+  table_name: "${LANCEDB_TABLE_NAME}"
+  schema:
+    vector: "vector"
+    text: "string"
+    source: "string"
+    chunk_id: "string"
+    timestamp: "timestamp"
+    metadata: "json"
+
+# 质量控制
+quality_control:
+  min_chunk_length: 50
+  max_chunk_length: 2000
+  duplicate_threshold: 0.95
+  language_detection: true
+  content_filtering: true
+
+# 监控配置
+monitoring:
+  progress_reporting: true
+  error_logging: true
+  performance_metrics: true
+  
+# 日志配置
+logging:
+  level: "${LOG_LEVEL}"
+  file: "${LOG_FILE}"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

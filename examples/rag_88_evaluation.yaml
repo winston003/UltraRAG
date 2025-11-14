@@ -1,0 +1,23 @@
+# 88.txt RAG评估配置文件
+# RAG Evaluation Configuration for 88.txt
+
+# MCP Server 配置
+servers:
+  benchmark: servers/benchmark
+  retriever: http://localhost:8002
+  prompt: servers/prompt
+  generation: http://localhost:8000
+  evaluation: servers/evaluation
+  custom: servers/custom
+
+# MCP Client Pipeline 配置
+pipeline:
+- benchmark.get_data
+- retriever.retriever_deploy_search
+- prompt.qa_rag_boxed
+- generation.generate
+- custom.output_extract_from_boxed
+- evaluation.evaluate
+
+# 服务参数配置
+# 各服务将使用各自parameter.yaml中的配置

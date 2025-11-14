@@ -1,0 +1,66 @@
+benchmark:
+  parameter: servers/benchmark/parameter.yaml
+  path: servers/benchmark/src/benchmark.py
+  tools:
+    get_data:
+      input:
+        benchmark: $benchmark
+      output:
+      - q_ls
+      - gt_ls
+custom:
+  parameter: servers/custom/parameter.yaml
+  path: servers/custom/src/custom.py
+  tools:
+    output_extract_from_boxed:
+      input:
+        ans_ls: ans_ls
+      output:
+      - pred_ls
+evaluation:
+  parameter: servers/evaluation/parameter.yaml
+  path: servers/evaluation/src/evaluation.py
+  tools:
+    evaluate:
+      input:
+        gt_ls: gt_ls
+        metrics: $metrics
+        pred_ls: pred_ls
+        save_path: $save_path
+      output:
+      - eval_res
+generation:
+  parameter: servers/generation/parameter.yaml
+  path: servers/generation/src/generation.py
+  tools:
+    generate:
+      input:
+        base_url: $base_url
+        model_name: $model_name
+        prompt_ls: prompt_ls
+        sampling_params: $sampling_params
+      output:
+      - ans_ls
+prompt:
+  parameter: servers/prompt/parameter.yaml
+  path: servers/prompt/src/prompt.py
+  prompts:
+    qa_rag_boxed:
+      input:
+        q_ls: q_ls
+        ret_psg: ret_psg
+        template: $template
+      output:
+      - prompt_ls
+retriever:
+  parameter: servers/retriever/parameter.yaml
+  path: servers/retriever/src/retriever.py
+  tools:
+    retriever_deploy_search:
+      input:
+        query_instruction: $query_instruction
+        query_list: q_ls
+        retriever_url: $retriever_url
+        top_k: $top_k
+      output:
+      - ret_psg

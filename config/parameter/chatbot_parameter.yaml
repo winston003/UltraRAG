@@ -1,0 +1,26 @@
+custom:
+  chat_history: []
+generation:
+  api_key: "${ALI_EMBEDDING_API_KEY}"
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model_name: qwen-turbo
+  sampling_params:
+    temperature: 0.7
+    max_tokens: 3000
+    top_p: 0.9
+prompt:
+  template: prompt/qa_rag_multiround.jinja
+  q_ls: ["你好，请介绍一下学霸君商业模式"]
+  formatted_context: ""
+retriever:
+  api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+  api_key: "${ALI_EMBEDDING_API_KEY}"
+  corpus_path: data/processed/88_chunks.jsonl
+  filter_expr: ''
+  lancedb_path: data/lancedb
+  openai_model: text-embedding-v3
+  query_instruction: 'Query: '
+  query_list: ["你好，请介绍一下泡泡玛特的商业模式"]
+  table_name: documents
+  top_k: 5
+  use_openai: true

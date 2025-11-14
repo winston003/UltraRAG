@@ -1,0 +1,50 @@
+# Feedback Server Configuration
+
+# 服务器配置
+server:
+  name: "feedback"
+  version: "1.0.0"
+  description: "Feedback collection and analysis server for UltraRAG"
+
+# 数据存储配置
+storage:
+  data_dir: "data/feedback"
+  backup_dir: "data/feedback/backup"
+  max_file_size: "100MB"
+  retention_days: 30
+
+# 反馈收集配置
+feedback_collection:
+  # 评分范围
+  rating_min: 1
+  rating_max: 5
+  
+  # 反馈文本最大长度
+  max_feedback_length: 1000
+  
+  # 是否必须提供评分
+  rating_required: false
+
+# 分析配置
+analysis:
+  # 默认分析时间范围（天）
+  default_analysis_days: 7
+  
+  # 低分阈值（用于识别问题反馈）
+  low_rating_threshold: 3
+  
+  # 高分阈值（用于识别优秀反馈）
+  high_rating_threshold: 4
+
+# 导出配置
+export:
+  formats: ["json", "csv"]
+  default_export_format: "json"
+  include_headers: true
+
+# 日志配置
+logging:
+  level: "INFO"
+  file: "logs/feedback.log"
+  max_file_size: "10MB"
+  backup_count: 5

@@ -10,6 +10,9 @@ __pycache__/
 # VSCode editor configuration
 .vscode/
 
+# IDE configuration
+.idea/
+
 # Runtime and download caches
 .infinity_cache/
 pretrained_models/
@@ -20,6 +23,14 @@ logs/
 test/
 corpora/
 data/chat_sessions/
+# Runtime artifacts
+*.pid
+pids/
+archive/
+
+# Backup files
+*.bak
+*~
 # Environment variables and secrets
 .env
 
@@ -32,3 +43,4 @@ servers/*/server.yaml
 
 # Python package metadata
 src/*.egg-info/
+/data/

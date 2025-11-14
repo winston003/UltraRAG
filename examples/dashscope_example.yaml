@@ -1,0 +1,52 @@
+# DashScope文本处理和索引构建示例
+# 使用阿里云DashScope API进行文本分段和向量索引构建
+
+# 基本信息
+name: "dashscope_text_processing"
+description: "使用DashScope API处理文本并构建向量索引"
+version: "1.0.0"
+
+# 环境变量配置
+# 需要设置: export ALI_EMBEDDING_API_KEY="your_api_key_here"
+
+# 输入配置
+input:
+  file_path: "data/word_chunk.txt"
+  encoding: "utf-8"
+
+# 处理配置
+processing:
+  chunk_size: 800
+  chunk_strategy: "recursive"  # 递归分块
+  tokenizer: "bert-base-chinese"
+  overlap: 50
+
+# DashScope配置
+dashscope:
+  model: "text-embedding-v3"  # 可选: text-embedding-v1, text-embedding-v2, text-embedding-v3
+  api_base: "https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding"
+  batch_size: 32
+  timeout: 30
+
+# 输出配置
+output:
+  chunks_file: "data/processed/{filename}_chunks.jsonl"
+  embedding_file: "embedding/embedding_{filename}.npy"
+  index_file: "index/index_{filename}.index"
+  overwrite: true
+
+# 检索测试配置
+retrieval_test:
+  query: "什么是人工智能？"
+  top_k: 3
+  similarity_threshold: 0.5
+
+# 使用说明
+usage:
+  command: "python process_dashscope.py --input_file data/word_chunk.txt --model text-embedding-v1 --overwrite"
+  environment: "conda activate ultrarag"
+  requirements:
+    - "ALI_EMBEDDING_API_KEY环境变量"
+    - "aiohttp库"
+    - "faiss-cpu或faiss-gpu库"
+    - "numpy库"

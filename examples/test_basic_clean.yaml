@@ -1,0 +1,11 @@
+# 基础文本清洗测试配置
+
+servers:
+  custom: servers/custom
+
+pipeline:
+  # 1. 加载文本文件
+  - custom.load_text_file
+  
+  # 2. 保存文本文件
+  - custom.save_text_file
