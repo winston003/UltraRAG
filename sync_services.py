@@ -18,6 +18,9 @@ class SyncServices:
     def __init__(self):
         self.retriever = None
         self.openai_client = None
+        self._template_cache = {}  # 缓存已加载的模板
+        self._last_query_hash = None  # 缓存上次查询的哈希
+        self._last_results = None  # 缓存上次的检索结果
         
     def init_retriever(self, **config):
         """初始化检索服务"""
@@ -70,16 +73,20 @@ class SyncServices:
         return formatted_context
     
     def generate_prompt(self, formatted_context: str, q_ls: List[str], template_path: str) -> List[str]:
-        """生成提示词"""
+        """生成提示词（带模板缓存）"""
         try:
-            # 读取模板文件
-            if not os.path.exists(template_path):
-                raise FileNotFoundError(f"模板文件不存在: {template_path}")
+            # 使用缓存的模板
+            if template_path not in self._template_cache:
+                if not os.path.exists(template_path):
+                    raise FileNotFoundError(f"模板文件不存在: {template_path}")
+                
+                with open(template_path, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
+                
+                self._template_cache[template_path] = Template(template_content)
+                logger.info(f"已缓存模板: {template_path}")
             
-            with open(template_path, 'r', encoding='utf-8') as f:
-                template_content = f.read()
-            
-            template = Template(template_content)
+            template = self._template_cache[template_path]
             
             # 为每个查询生成提示词
             prompts = []
@@ -104,26 +111,39 @@ class SyncServices:
             logger.error(f"生成提示词失败: {e}")
             raise
     
-    def init_openai_client(self, api_key: str, api_base: str, model: str):
+    def init_openai_client(self, api_key: str, api_base: str, model: str, **kwargs):
         """初始化OpenAI客户端"""
         try:
             from openai import OpenAI
             
+            if not api_key or api_key == "your_api_key_here":
+                raise ValueError("无效的API密钥，请在.env文件中配置正确的ALI_EMBEDDING_API_KEY")
+            
+            # 只传递 OpenAI 客户端支持的参数
             self.openai_client = OpenAI(
                 api_key=api_key,
-                base_url=api_base
+                base_url=api_base,
+                timeout=30.0,  # 添加超时设置
+                max_retries=2  # 添加重试机制
             )
             self.openai_model = model
             
-            # 测试连接
-            response = self.openai_client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": "测试"}],
-                max_tokens=10
-            )
-            logger.info("OpenAI生成客户端初始化成功")
+            # 测试连接（使用更短的测试）
+            try:
+                response = self.openai_client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": "hi"}],
+                    max_tokens=5
+                )
+                logger.info(f"OpenAI生成客户端初始化成功 (模型: {model})")
+            except Exception as test_error:
+                logger.warning(f"连接测试失败，但客户端已创建: {test_error}")
+            
             return True
             
+        except ImportError:
+            logger.error("未安装openai库，请运行: pip install openai")
+            raise
         except Exception as e:
             logger.error(f"OpenAI生成客户端初始化失败: {e}")
             raise
@@ -202,3 +222,20 @@ class SyncServices:
                 return cleaned
         
         return "抱歉，生成的回答为空。"
+    
+    def clear_cache(self):
+        """清理缓存"""
+        self._template_cache.clear()
+        self._last_query_hash = None
+        self._last_results = None
+        logger.info("已清理服务缓存")
+    
+    def close(self):
+        """关闭所有连接"""
+        if self.openai_client:
+            self.openai_client.close()
+            self.openai_client = None
+        if self.retriever:
+            self.retriever = None
+        self.clear_cache()
+        logger.info("已关闭所有服务连接")

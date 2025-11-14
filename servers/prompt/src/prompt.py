@@ -81,6 +81,28 @@ def qa_rag_boxed_multiple_choice(
     return ret
 
 
+#  20250911 added by whilewon
+# prompt for multi-round RAG QA
+@app.prompt(output="q_ls,formatted_context,template->prompt_ls")
+def qa_rag_multiround(
+    q_ls: List[str], 
+    formatted_context: str,
+    template: str | Path
+) -> List[PromptMessage]:
+    import json
+    template: Template = load_prompt_template(template)
+    # 解析JSON字符串为字典对象
+    context_dict = json.loads(formatted_context)
+    ret = []
+    for q in q_ls:
+        p = template.render(
+            question=q, 
+            formatted_context=context_dict
+        )
+        ret.append(p)
+    return ret
+
+
 # prompt for RankCoT
 @app.prompt(output="q_ls,ret_psg,kr_template->prompt_ls")
 def RankCoT_kr(

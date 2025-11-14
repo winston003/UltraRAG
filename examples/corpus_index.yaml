@@ -6,6 +6,6 @@ servers:
 
 # MCP Client Pipeline
 pipeline:
-- retriever.retriever_init
-- retriever.retriever_embed
+- retriever.retriever_init_openai
+- retriever.retriever_embed_openai
 - retriever.retriever_index

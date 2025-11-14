@@ -23,19 +23,40 @@ class SyncRetriever:
         
     def init_openai(
         self,
-        corpus_path: str,
-        openai_model: str,
-        api_base: str,
-        api_key: str
+        corpus_path: str = None,
+        openai_model: str = None,
+        api_base: str = None,
+        api_key: str = None,
+        **kwargs  # 忽略其他参数
     ):
         """初始化OpenAI客户端（同步版本）"""
         try:
             from openai import OpenAI  # 使用同步版本
             
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url=api_base
-            )
+            # 记录接收到的额外参数（用于调试）
+            if kwargs:
+                logger.debug(f"init_openai 忽略的额外参数: {list(kwargs.keys())}")
+            
+            if not api_key or api_key == "your_api_key_here":
+                raise ValueError("无效的API密钥")
+            
+            # 只传递 OpenAI 客户端支持的参数
+            client_params = {
+                'api_key': api_key,
+                'base_url': api_base,
+                'timeout': 30.0,
+                'max_retries': 2
+            }
+            
+            logger.info(f"创建 OpenAI 客户端，参数: base_url={api_base}, model={openai_model}")
+            logger.debug(f"client_params keys: {list(client_params.keys())}")
+            
+            try:
+                self.client = OpenAI(**client_params)
+            except TypeError as te:
+                logger.error(f"OpenAI 客户端初始化参数错误: {te}")
+                logger.error(f"尝试的参数: {client_params}")
+                raise
             self.openai_model = openai_model
             
             # 加载语料库
@@ -44,15 +65,24 @@ class SyncRetriever:
                 with jsonlines.open(corpus_path, mode="r") as reader:
                     self.contents = [item["contents"] for item in reader]
                 logger.info(f"已加载 {len(self.contents)} 个文档片段")
+            else:
+                logger.warning(f"语料库文件不存在: {corpus_path}")
             
-            # 测试连接
-            response = self.client.embeddings.create(
-                input="测试连接",
-                model=self.openai_model
-            )
-            logger.info("OpenAI客户端初始化成功")
+            # 测试连接（使用更短的测试文本）
+            try:
+                response = self.client.embeddings.create(
+                    input="test",
+                    model=self.openai_model
+                )
+                logger.info(f"OpenAI客户端初始化成功 (模型: {self.openai_model})")
+            except Exception as test_error:
+                logger.warning(f"连接测试失败，但客户端已创建: {test_error}")
+            
             return True
             
+        except ImportError:
+            logger.error("未安装openai库，请运行: pip install openai")
+            raise
         except Exception as e:
             logger.error(f"OpenAI客户端初始化失败: {e}")
             raise
@@ -66,8 +96,12 @@ class SyncRetriever:
         lancedb_path: str = "",
         table_name: str = "documents",
         filter_expr: Optional[str] = None,
+        **kwargs  # 忽略其他参数
     ) -> Dict[str, List[List[str]]]:
         """LanceDB检索（同步版本）"""
+        # 记录接收到的额外参数（用于调试）
+        if kwargs:
+            logger.debug(f"search_lancedb 忽略的额外参数: {list(kwargs.keys())}")
         try:
             import lancedb
         except ImportError as e:
@@ -112,16 +146,31 @@ class SyncRetriever:
             if filter_expr:
                 search_result = search_result.where(filter_expr)
             
-            # 执行搜索
-            search_df = search_result.to_pandas()
-            
-            # 提取结果
-            query_results = []
-            for _, row in search_df.iterrows():
-                query_results.append([
-                    row.get('text', ''),  # 使用正确的字段名 'text' 而不是 'contents'
-                    str(row.get('_distance', 0.0))
-                ])
+            # 执行搜索 - LanceDB 0.3.0 返回列表而不是 DataFrame
+            try:
+                # 尝试新 API (0.3.0+)
+                search_results_list = search_result.to_list()
+                
+                # 提取结果
+                query_results = []
+                for item in search_results_list:
+                    text = item.get('text', '') or item.get('contents', '')
+                    distance = item.get('_distance', 0.0)
+                    query_results.append([text, str(distance)])
+                    
+            except AttributeError:
+                # 降级到旧 API
+                try:
+                    search_df = search_result.to_pandas()
+                    query_results = []
+                    for _, row in search_df.iterrows():
+                        query_results.append([
+                            row.get('text', '') or row.get('contents', ''),
+                            str(row.get('_distance', 0.0))
+                        ])
+                except Exception as e:
+                    logger.error(f"搜索失败: {e}")
+                    query_results = []
             
             results.append(query_results)
             logger.info(f"查询 '{queries[i]}' 找到 {len(query_results)} 个结果")

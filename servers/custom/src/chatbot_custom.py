@@ -1,6 +1,24 @@
 import json
 from typing import List, Dict, Any, Optional
 
+# 简化 anyio 兼容性处理，避免版本检查可能引发的问题
+try:
+    import anyio
+    # 确保 create_memory_object_stream 可以正确导入
+    try:
+        # 尝试新版本导入方式
+        from anyio import create_memory_object_stream
+    except ImportError:
+        # 尝试旧版本导入方式
+        try:
+            from anyio.streams.memory import create_memory_object_stream
+        except ImportError:
+            # 如果都失败了，设置一个占位符
+            create_memory_object_stream = None
+except ImportError:
+    # anyio 未安装，设置占位符
+    create_memory_object_stream = None
+
 try:
     from ultrarag.server import UltraRAG_MCP_Server
 except ImportError:

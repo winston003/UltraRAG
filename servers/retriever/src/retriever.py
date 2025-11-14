@@ -1,6 +1,7 @@
 import asyncio
 import gc
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -12,6 +13,12 @@ from PIL import Image
 
 from fastmcp.exceptions import ValidationError, NotFoundError, ToolError
 from ultrarag.server import UltraRAG_MCP_Server
+
+# Add the server's src directory to path for local imports
+_server_src = Path(__file__).parent
+if str(_server_src) not in sys.path:
+    sys.path.insert(0, str(_server_src))
+
 from index_backends import BaseIndexBackend, create_index_backend
 
 app = UltraRAG_MCP_Server("retriever")

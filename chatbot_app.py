@@ -36,15 +36,17 @@ src_path = os.path.join(project_root, 'src')
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-try:
-    from ultrarag.client import ToolCall, initialize
-    logger_temp = logging.getLogger(__name__)
-    logger_temp.info("✅ 成功导入 ultrarag.client")
-except ImportError as e:
-    print(f"错误: 无法导入 ultrarag.client: {e}")
-    print(f"Python路径: {sys.path}")
-    print(f"当前目录: {os.getcwd()}")
-    raise
+# 注意：我们使用 sync_services 而不是 ultrarag.client
+# 因此不需要导入 ToolCall 和 initialize
+# try:
+#     from ultrarag.client import ToolCall, initialize
+#     logger_temp = logging.getLogger(__name__)
+#     logger_temp.info("✅ 成功导入 ultrarag.client")
+# except ImportError as e:
+#     print(f"错误: 无法导入 ultrarag.client: {e}")
+#     print(f"Python路径: {sys.path}")
+#     print(f"当前目录: {os.getcwd()}")
+#     raise
 
 try:
     from sync_services import SyncServices
@@ -78,6 +80,24 @@ except ImportError:
 
 # 全局同步服务实例
 sync_services = SyncServices()
+
+# 性能监控装饰器
+def monitor_performance(func_name: str):
+    """性能监控装饰器"""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            try:
+                result = func(*args, **kwargs)
+                duration = time.time() - start_time
+                logger.info(f"⏱️ {func_name} 执行耗时: {duration:.3f}秒")
+                return result
+            except Exception as e:
+                duration = time.time() - start_time
+                logger.error(f"❌ {func_name} 执行失败 (耗时: {duration:.3f}秒): {e}")
+                raise
+        return wrapper
+    return decorator
 
 def _sync_result(val, timeout: float | None = None):
     """如果 val 是 asyncio.Task/Future 或 coroutine, 在同步上下文中等待其完成并返回结果。
@@ -270,12 +290,10 @@ class BusinessCaseRAGChatbot:
         # 检查并创建环境变量文件
         config_manager.create_env_file_if_missing()
         
-        # 检查必需的API密钥
-        key_status = config_manager.check_required_keys()
-        missing_keys = [service for service, available in key_status.items() if not available]
-        
-        if missing_keys:
-            error_msg = f"缺少必需的API密钥: {', '.join(missing_keys)}。请检查 .env 文件配置。"
+        # 验证配置完整性
+        is_valid, errors = config_manager.validate_config()
+        if not is_valid:
+            error_msg = "配置验证失败:\n" + "\n".join(f"  - {err}" for err in errors)
             logger.error(error_msg)
             raise ValueError(error_msg)
         
@@ -288,21 +306,10 @@ class BusinessCaseRAGChatbot:
             logger.error(f"加载配置文件失败: {e}")
             raise
 
-        # 初始化服务
-        try:
-            servers_config = self.config.get('servers', {})
-            # 从配置中提取服务器名称列表
-            servers_list = list(servers_config.keys())
-            # 获取服务器根目录
-            server_root = "servers"
-            logger.info(f"使用服务器根目录: {server_root}")
-            logger.info(f"初始化服务器列表: {servers_list}")
-            initialize(servers_list, server_root)
-            logger.info("成功初始化所有服务")
-            self._initialized = True
-        except Exception as e:
-            logger.error(f"初始化服务失败: {e}")
-            raise
+        # 注意：我们使用 sync_services 而不是 MCP 服务器
+        # 因此不需要调用 initialize()
+        logger.info("使用同步服务模式，跳过 MCP 服务器初始化")
+        self._initialized = True
 
     def chat_stream(self, question: str, chat_history: List[Dict]):
         """流式聊天方法"""
@@ -959,7 +966,20 @@ def main():
     # 初始化聊天机器人
     if "chatbot" not in st.session_state:
         try:
-            st.session_state.chatbot = BusinessCaseRAGChatbot("config/chatbot.yaml")
+            with st.spinner("🔧 正在初始化系统..."):
+                st.session_state.chatbot = BusinessCaseRAGChatbot("config/chatbot.yaml")
+            st.success("✅ 系统初始化成功！")
+        except ValueError as e:
+            st.error(f"💥 配置错误: {str(e)}")
+            with st.expander("📋 配置检查清单"):
+                st.markdown("""
+                请检查以下配置：
+                1. ✅ `.env` 文件是否存在
+                2. ✅ `ALI_EMBEDDING_API_KEY` 是否已配置
+                3. ✅ `data/lancedb` 目录是否存在
+                4. ✅ 配置文件格式是否正确
+                """)
+            st.stop()
         except Exception as e:
             st.error(f"💥 系统初始化失败: {str(e)}")
             st.info("请确保配置文件存在且格式正确，或联系技术支持。")
@@ -968,14 +988,22 @@ def main():
     # 显示聊天历史
     display_chat_history()
   
+    # 初始化 session state
+    if "processing" not in st.session_state:
+        st.session_state.processing = False
+    
     # 处理模板问题
-    if "template_question" in st.session_state:
+    if "template_question" in st.session_state and not st.session_state.processing:
         prompt = st.session_state.template_question
         del st.session_state.template_question
     else:
         prompt = st.chat_input("💭 请输入您的商业案例问题...")
     
-    if prompt:
+    # 只有在不处理中且有新问题时才处理
+    if prompt and not st.session_state.processing:
+        # 设置处理标记
+        st.session_state.processing = True
+        
         # 记录用户问题（轻量级）
         try:
             session_id = st.session_state.get('session_id', 'unknown')
@@ -1036,8 +1064,8 @@ def main():
         # 添加助手消息
         st.session_state.messages.append({"role": "assistant", "content": response})
         
-        # 自动滚动到底部
-        st.rerun()
+        # 清除处理标记，允许下一次输入
+        st.session_state.processing = False
 
 if __name__ == "__main__":
     main()

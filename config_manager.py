@@ -131,7 +131,7 @@ OPENAI_API_KEY=your_openai_key_here
         api_key = api_key.strip()
         
         # 检查是否为空或占位符
-        if not api_key or api_key == "your_api_key_here":
+        if not api_key or api_key in ["your_api_key_here", "your_openai_key_here"]:
             return False
         
         # 基本格式检查（DashScope API密钥通常以sk-开头）
@@ -147,6 +147,42 @@ OPENAI_API_KEY=your_openai_key_here
             return True
         
         return False
+    
+    def get_all_config(self) -> Dict[str, Any]:
+        """获取所有配置信息（不包含敏感信息）"""
+        return {
+            "env_file_exists": self.env_file.exists(),
+            "key_status": self.check_required_keys(),
+            "env_vars": {
+                "LANCEDB_PATH": os.getenv("LANCEDB_PATH", "data/lancedb"),
+                "LANCEDB_TABLE": os.getenv("LANCEDB_TABLE", "documents"),
+                "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO")
+            }
+        }
+    
+    def validate_config(self) -> tuple[bool, list[str]]:
+        """验证配置完整性
+        
+        Returns:
+            tuple: (是否有效, 错误信息列表)
+        """
+        errors = []
+        
+        # 检查.env文件
+        if not self.env_file.exists():
+            errors.append("缺少.env配置文件")
+        
+        # 检查必需的API密钥
+        key_status = self.check_required_keys()
+        if not key_status.get("dashscope"):
+            errors.append("缺少DashScope API密钥 (ALI_EMBEDDING_API_KEY)")
+        
+        # 检查数据目录
+        lancedb_path = os.getenv("LANCEDB_PATH", "data/lancedb")
+        if not os.path.exists(lancedb_path):
+            errors.append(f"LanceDB数据库目录不存在: {lancedb_path}")
+        
+        return len(errors) == 0, errors
 
 # 创建全局配置管理器实例
 config_manager = ConfigManager()

@@ -150,7 +150,7 @@ echo "🔧 启动后台MCP服务..."
 # Use conda run to ensure correct environment; redirect logs and record PIDs
 
 # 设置必要的环境变量
-export LLM_API_KEY="sk-9a480cd1ba2c4748af4c33becde8bd5a"
+export LLM_API_KEY="${LLM_API_KEY:-your-api-key-here}"
 export PYTHONPATH="$(pwd)/src:$PYTHONPATH"
 echo "🔑 设置API密钥环境变量"
 echo "📂 设置Python路径: $PYTHONPATH"
@@ -178,6 +178,7 @@ echo "✅ 生成服务已启动 (PID: $GENERATION_PID), 日志: logs/generation.
 
 # 启动自定义服务
 echo "⚙️  启动自定义服务..."
+# 修复 anyio 兼容性问题，通过指定 Python 路径来确保使用正确的库版本
 nohup conda run -n ultrarag --no-capture-output env LLM_API_KEY="$LLM_API_KEY" PYTHONPATH="$(pwd)/src:$PYTHONPATH" python -m servers.custom.src.chatbot_custom > logs/custom.log 2>&1 &
 CUSTOM_PID=$!
 echo $CUSTOM_PID > logs/custom.pid

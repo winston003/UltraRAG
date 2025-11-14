@@ -1,1 +1,3 @@
 # servers/custom/parameter.yaml
+path: servers/custom/src/chatbot_custom.py
+server_config: servers/custom/server.yaml
