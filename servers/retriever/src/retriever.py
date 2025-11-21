@@ -47,6 +47,10 @@ class Retriever:
             output="q_ls,top_k,query_instruction->ret_psg",
         )
         mcp_inst.tool(
+            self.retriever_deploy_search,
+            output="retriever_url,q_ls,top_k,query_instruction->ret_psg",
+        )
+        mcp_inst.tool(
             self.retriever_search_colbert_maxsim,
             output="q_ls,embedding_path,top_k,query_instruction->ret_psg",
         )
@@ -94,10 +98,22 @@ class Retriever:
         cfg = self.backend_configs.get(self.backend, {})
         self.cfg = cfg
 
-        gpu_ids = str(gpu_ids)
-        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_ids
-
-        self.device_num = len(gpu_ids.split(","))
+        if gpu_ids is None:
+            self.gpu_ids = None
+            self.device = "cpu"
+            self.device_num = 1
+            app.logger.info("[retriever] gpu_ids is None, treat as CPU-only mode.")
+        else:
+            gpu_ids = str(gpu_ids)
+            os.environ["CUDA_VISIBLE_DEVICES"] = gpu_ids
+            self.gpu_ids = gpu_ids
+            self.device = "cuda"
+            self.device_num = len(gpu_ids.split(","))
+            app.logger.info(
+                "[retriever] Set CUDA_VISIBLE_DEVICES=%s, device_num=%d",
+                gpu_ids,
+                self.device_num,
+            )
 
         if self.backend == "infinity":
             try:
@@ -107,24 +123,10 @@ class Retriever:
                 app.logger.error(err_msg)
                 raise ImportError(err_msg)
 
-            device = str(cfg.get("device", "")).strip().lower()
-            if not device:
-                warn_msg = f"[infinity] device is not set, default to `cpu`"
-                app.logger.warning(warn_msg)
-                device = "cpu"
-
-            if device == "cpu":
-                info_msg = "[infinity] device=cpu, gpu_ids is ignored"
-                app.logger.info(info_msg)
-                self.device_num = 1
-
-            app.logger.info(
-                f"[infinity] device={device}, gpu_ids={gpu_ids}, device_num={self.device_num}"
-            )
-
             infinity_engine_args = EngineArgs(
                 model_name_or_path=model_name_or_path,
                 batch_size=self.batch_size,
+                device=self.device,
                 **cfg,
             )
             self.model = AsyncEngineArray.from_args([infinity_engine_args])[0]
@@ -142,25 +144,9 @@ class Retriever:
             self.st_encode_params = cfg.get("sentence_transformers_encode", {}) or {}
             st_params = self._drop_keys(cfg, banned=["sentence_transformers_encode"])
 
-            device = str(cfg.get("device", "")).strip().lower()
-            if not device:
-                warn_msg = (
-                    f"[sentence_transformers] device is not set, default to `cpu`"
-                )
-                app.logger.warning(warn_msg)
-                device = "cpu"
-
-            if device == "cpu":
-                info_msg = "[sentence_transformers] device=cpu, gpu_ids is ignored"
-                app.logger.info(info_msg)
-                self.device_num = 1
-
-            app.logger.info(
-                f"[sentence_transformers] device={device}, gpu_ids={gpu_ids}, device_num={self.device_num}"
-            )
-
             self.model = SentenceTransformer(
                 model_name_or_path=model_name_or_path,
+                device=self.device,
                 **st_params,
             )
 
@@ -635,6 +621,58 @@ class Retriever:
         rets = self.index_backend.search(query_embedding, top_k)
 
         return {"ret_psg": rets}
+    
+    async def retriever_deploy_search(
+        self,
+        retriever_url: str,
+        query_list: List[str],
+        top_k: int = 5,
+        query_instruction: str = "",
+    ) -> Dict[str, List[List[str]]]:
+        from urllib.parse import urlparse, urlunparse
+        import aiohttp
+
+        url = retriever_url.strip()
+        if not url.startswith("http://") and not url.startswith("https://"):
+            url = f"http://{url}"
+
+        url_obj = urlparse(url)
+        api_url = urlunparse(url_obj._replace(path="/search", query="", fragment=""))
+
+        app.logger.info(f"[remote_retriever] Calling remote retriever at: {api_url}")
+
+
+        payload: Dict[str, Any] = {
+            "query_list": query_list,
+            "top_k": top_k,
+            "query_instruction": query_instruction,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(api_url, json=payload) as response:
+                if response.status != 200:
+                    err_text = await response.text()
+                    err_msg = (
+                        f"[remote_retriever] Failed to call {api_url}, "
+                        f"status={response.status}, body={err_text}"
+                    )
+                    app.logger.error(err_msg)
+                    raise ToolError(err_msg)
+
+                response_data = await response.json()
+                app.logger.debug(
+                    f"[remote_retriever] status={response.status}, keys={list(response_data.keys())}"
+                )
+
+                if "ret_psg" not in response_data:
+                    err_msg = (
+                        f"[remote_retriever] Response missing 'ret_psg' field: "
+                        f"{response_data}"
+                    )
+                    app.logger.error(err_msg)
+                    raise ToolError(err_msg)
+
+                return {"ret_psg": response_data["ret_psg"]}
 
     async def retriever_search_colbert_maxsim(
         self,
